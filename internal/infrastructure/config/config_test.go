@@ -106,6 +106,52 @@ func TestLoadRejectsUnusableValues(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultsToCallingNodeApiWithoutSigning(t *testing.T) {
+	setValidEnvironment(t)
+
+	configuration, err := config.Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, config.NodeServiceAuthNone, configuration.NodeServiceAuth)
+}
+
+func TestLoadAcceptsIamSigningWhenTheRegionIsKnown(t *testing.T) {
+	setValidEnvironment(t)
+	t.Setenv("NODE_SERVICE_AUTH", "IAM")
+	t.Setenv("AWS_REGION", "eu-west-1")
+
+	configuration, err := config.Load()
+
+	require.NoError(t, err)
+	assert.Equal(t, config.NodeServiceAuthIAM, configuration.NodeServiceAuth, "el valor se normaliza")
+	assert.Equal(t, "eu-west-1", configuration.AWSRegion)
+}
+
+// Firmar sin region produce una firma que AWS rechaza, y el error no lo explica.
+// Es mejor no arrancar que fallar en la primera peticion de un usuario.
+func TestLoadRefusesIamSigningWithoutARegion(t *testing.T) {
+	setValidEnvironment(t)
+	t.Setenv("NODE_SERVICE_AUTH", "iam")
+	t.Setenv("AWS_REGION", "")
+
+	_, err := config.Load()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AWS_REGION")
+}
+
+// Un valor mal escrito dejaria el servicio llamando sin firma contra un endpoint
+// que la exige, y el fallo apareceria en produccion y no al arrancar.
+func TestLoadRejectsAnUnknownAuthMode(t *testing.T) {
+	setValidEnvironment(t)
+	t.Setenv("NODE_SERVICE_AUTH", "sigv4")
+
+	_, err := config.Load()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "NODE_SERVICE_AUTH")
+}
+
 func TestLoadTrimsSurroundingWhitespace(t *testing.T) {
 	setValidEnvironment(t)
 	t.Setenv("AUTH_USERNAME", "  demo  ")

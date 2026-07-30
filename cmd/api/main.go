@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/detecta/reto-tecnico/go-api/internal/application/auth"
 	"github.com/detecta/reto-tecnico/go-api/internal/application/factorization"
+	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/awsauth"
 	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/config"
 	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/logger"
 	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/nodeapi"
@@ -39,15 +41,26 @@ func run() error {
 	}
 
 	log := logger.New(configuration.LogLevel)
-	app := buildApp(configuration, log)
+
+	app, err := buildApp(context.Background(), configuration, log)
+	if err != nil {
+		return err
+	}
 
 	return listenUntilSignal(app, configuration, log)
 }
 
-func buildApp(configuration config.Config, log *slog.Logger) *fiber.App {
+func buildApp(
+	ctx context.Context,
+	configuration config.Config,
+	log *slog.Logger,
+) (*fiber.App, error) {
 	tokenService := token.NewService(configuration.JWTSecret, configuration.JWTExpiration)
-	statisticsClient := nodeapi.NewStatisticsClient(
-		configuration.NodeServiceURL, configuration.NodeServiceTimeout)
+
+	statisticsClient, err := buildStatisticsClient(ctx, configuration, log)
+	if err != nil {
+		return nil, err
+	}
 
 	factorizeMatrix := factorization.NewFactorizeMatrixUseCase(
 		qr.NewFactorizationService(), statisticsClient, configuration.MaxMatrixDimension)
@@ -61,7 +74,34 @@ func buildApp(configuration config.Config, log *slog.Logger) *fiber.App {
 		Auth:          controllers.NewAuthController(issueAccessToken),
 		Factorization: controllers.NewFactorizationController(factorizeMatrix),
 		TokenService:  tokenService,
-	})
+	}), nil
+}
+
+// buildStatisticsClient decide si la llamada a node-api va firmada.
+//
+// Es lo unico que cambia entre correr en la red interna de Docker y correr contra
+// una Lambda Function URL con autenticacion IAM. Ni el caso de uso ni el dominio
+// se enteran.
+func buildStatisticsClient(
+	ctx context.Context,
+	configuration config.Config,
+	log *slog.Logger,
+) (factorization.StatisticsProvider, error) {
+	if configuration.NodeServiceAuth != config.NodeServiceAuthIAM {
+		return nodeapi.NewStatisticsClient(
+			configuration.NodeServiceURL, configuration.NodeServiceTimeout), nil
+	}
+
+	signer, err := awsauth.NewRequestSigner(ctx, configuration.AWSRegion)
+	if err != nil {
+		return nil, fmt.Errorf("build request signer: %w", err)
+	}
+
+	log.Info("statistics requests will be signed with sigv4",
+		slog.String("region", configuration.AWSRegion))
+
+	return nodeapi.NewSignedStatisticsClient(
+		configuration.NodeServiceURL, configuration.NodeServiceTimeout, signer), nil
 }
 
 func listenUntilSignal(app *fiber.App, configuration config.Config, log *slog.Logger) error {

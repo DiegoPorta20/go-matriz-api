@@ -14,6 +14,7 @@ const (
 	defaultJWTExpirationMinutes = 60
 	defaultMaxMatrixDimension   = 50
 	defaultLogLevel             = "info"
+	defaultNodeServiceAuth      = NodeServiceAuthNone
 
 	minimumSecretLength = 32
 )
@@ -29,7 +30,20 @@ type Config struct {
 	CORSAllowedOrigins []string
 	MaxMatrixDimension int
 	LogLevel           string
+
+	// NodeServiceAuth decide como se autentica la llamada a node-api. Con "iam"
+	// la peticion se firma con SigV4, que es lo que exige una Lambda Function URL
+	// con autenticacion IAM. Con "none" se llama directamente, como en la red
+	// interna de Docker.
+	NodeServiceAuth string
+	AWSRegion       string
 }
+
+// Modos admitidos para NODE_SERVICE_AUTH.
+const (
+	NodeServiceAuthNone = "none"
+	NodeServiceAuthIAM  = "iam"
+)
 
 func Load() (Config, error) {
 	var env reader
@@ -45,6 +59,14 @@ func Load() (Config, error) {
 		CORSAllowedOrigins: env.origins("CORS_ALLOWED_ORIGINS"),
 		MaxMatrixDimension: env.positiveInt("MAX_MATRIX_DIMENSION", defaultMaxMatrixDimension),
 		LogLevel:           env.withDefault("LOG_LEVEL", defaultLogLevel),
+		NodeServiceAuth:    env.nodeServiceAuth("NODE_SERVICE_AUTH"),
+		AWSRegion:          env.withDefault("AWS_REGION", ""),
+	}
+
+	// Firmar sin saber la region produce una firma que AWS rechaza, y el mensaje
+	// de error no lo explica. Mejor no arrancar.
+	if configuration.NodeServiceAuth == NodeServiceAuthIAM && configuration.AWSRegion == "" {
+		env.reject("AWS_REGION", "is required when NODE_SERVICE_AUTH is iam")
 	}
 
 	if len(env.problems) > 0 {
@@ -126,6 +148,20 @@ func (r *reader) origins(key string) []string {
 		r.reject(key, "must contain at least one origin")
 	}
 	return origins
+}
+
+// nodeServiceAuth solo admite los dos modos conocidos: un valor mal escrito
+// dejaria el servicio llamando sin firma contra un endpoint que la exige, y el
+// fallo apareceria en la primera peticion de un usuario y no al arrancar.
+func (r *reader) nodeServiceAuth(key string) string {
+	value := strings.ToLower(r.withDefault(key, defaultNodeServiceAuth))
+
+	if value != NodeServiceAuthNone && value != NodeServiceAuthIAM {
+		r.reject(key, fmt.Sprintf("must be %q or %q", NodeServiceAuthNone, NodeServiceAuthIAM))
+		return defaultNodeServiceAuth
+	}
+
+	return value
 }
 
 func (r *reader) reject(key, problem string) {

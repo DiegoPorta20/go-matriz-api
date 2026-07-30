@@ -1,0 +1,30 @@
+# Entorno. Contiene el JWT_SECRET y la password reales: nunca se versiona.
+.env
+.env.local
+.env.*.local
+
+# Binarios compilados
+/bin/
+/api
+/api.exe
+*.exe
+
+# Binarios de test y perfiles que deja `go test`
+*.test
+*.prof
+*.out
+
+# Informe de cobertura
+coverage.out
+coverage.html
+
+# Editores
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
