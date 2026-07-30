@@ -14,9 +14,6 @@ import (
 
 const testRegion = "eu-west-1"
 
-// Credenciales estaticas por variables de entorno: es la primera fuente de la
-// cadena estandar de AWS, asi que el firmador las encuentra sin tocar disco ni
-// red. Sin esto, LoadDefaultConfig intentaria consultar el metadata de EC2.
 func withStaticCredentials(t *testing.T) {
 	t.Helper()
 
@@ -54,8 +51,6 @@ func TestSignWritesASigV4AuthorizationHeader(t *testing.T) {
 	authorization := request.Header.Get("Authorization")
 	assert.Contains(t, authorization, "AWS4-HMAC-SHA256")
 	assert.Contains(t, authorization, "Credential=AKIAIOSFODNN7EXAMPLE/")
-	// El scope tiene que declarar el servicio lambda: firmarla como otro servicio
-	// produce una firma que AWS rechaza.
 	assert.Contains(t, authorization, "/eu-west-1/lambda/aws4_request")
 	assert.Contains(t, authorization, "SignedHeaders=")
 	assert.Contains(t, authorization, "Signature=")
@@ -63,8 +58,6 @@ func TestSignWritesASigV4AuthorizationHeader(t *testing.T) {
 	assert.NotEmpty(t, request.Header.Get("X-Amz-Date"))
 }
 
-// La firma cubre el cuerpo: si no lo hiciera, cualquiera podria cambiar la matriz
-// en trانsito conservando una firma valida.
 func TestSignCoversThePayload(t *testing.T) {
 	withStaticCredentials(t)
 
@@ -86,8 +79,6 @@ func TestSignCoversThePayload(t *testing.T) {
 		"dos cuerpos distintos no pueden compartir firma")
 }
 
-// El token del usuario viaja en X-Access-Token, y la firma tiene que cubrirla
-// tambien: si quedara fuera, se podria sustituir el token sin invalidar la firma.
 func TestSignCoversTheAccessTokenHeader(t *testing.T) {
 	withStaticCredentials(t)
 
@@ -123,8 +114,6 @@ func TestSignPreservesTheBodyForSending(t *testing.T) {
 
 	require.NoError(t, signer.Sign(context.Background(), request, payload))
 
-	// Si el firmador leyera request.Body para calcular el hash, el cuerpo llegaria
-	// vacio al servidor.
 	enviado := make([]byte, len(payload))
 	read, err := request.Body.Read(enviado)
 	require.NoError(t, err)

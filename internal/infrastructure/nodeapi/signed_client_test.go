@@ -16,8 +16,6 @@ import (
 	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/token"
 )
 
-// Imita lo que hace SigV4: escribir en Authorization. Se firma de verdad en
-// awsauth; aqui lo que se prueba es que el cliente coloca cada cosa en su sitio.
 type stubSigner struct {
 	err             error
 	calls           int
@@ -38,8 +36,6 @@ func (s *stubSigner) Sign(_ context.Context, request *http.Request, payload []by
 	return nil
 }
 
-// Con firma, Authorization la ocupa SigV4, asi que el JWT del usuario tiene que
-// viajar en su propia cabecera o se perderia.
 func TestSignedClientSendsTheUserTokenInItsOwnHeader(t *testing.T) {
 	var recibidas http.Header
 
@@ -61,8 +57,6 @@ func TestSignedClientSendsTheUserTokenInItsOwnHeader(t *testing.T) {
 	assert.NotContains(t, recibidas.Get("Authorization"), "Bearer")
 }
 
-// El orden importa: SigV4 incluye las cabeceras en el calculo, asi que si el
-// token se añadiera despues de firmar, la firma no cuadraria.
 func TestSignedClientSignsAfterSettingEveryHeader(t *testing.T) {
 	server := serverReturning(t, http.StatusOK, validResponse)
 	signer := &stubSigner{}
@@ -77,8 +71,6 @@ func TestSignedClientSignsAfterSettingEveryHeader(t *testing.T) {
 	assert.Equal(t, "application/json", signer.headersAlFirmar.Get("Content-Type"))
 }
 
-// SigV4 necesita el hash del cuerpo. Si se leyera de request.Body, el cuerpo
-// llegaria vacio al servidor.
 func TestSignedClientGivesTheSignerTheSameBodyItSends(t *testing.T) {
 	var cuerpoRecibido []byte
 
@@ -108,8 +100,6 @@ func TestSignedClientFailsWhenTheSignatureFails(t *testing.T) {
 	require.ErrorIs(t, err, fallo)
 }
 
-// El cliente sin firma es el que usa docker compose, y ahi el JWT sigue yendo
-// donde siempre.
 func TestUnsignedClientKeepsUsingTheBearerHeader(t *testing.T) {
 	var recibidas http.Header
 
@@ -129,8 +119,6 @@ func TestUnsignedClientKeepsUsingTheBearerHeader(t *testing.T) {
 	assert.Empty(t, recibidas.Get("X-Access-Token"))
 }
 
-// El cliente firmado sigue siendo un StatisticsProvider: el caso de uso no se
-// entera de que hay firma.
 func TestSignedClientSatisfiesThePort(t *testing.T) {
 	var _ factorization.StatisticsProvider = nodeapi.NewSignedStatisticsClient(
 		"http://node-api:3000", clientTimeout, &stubSigner{})

@@ -31,15 +31,10 @@ type Config struct {
 	MaxMatrixDimension int
 	LogLevel           string
 
-	// NodeServiceAuth decide como se autentica la llamada a node-api. Con "iam"
-	// la peticion se firma con SigV4, que es lo que exige una Lambda Function URL
-	// con autenticacion IAM. Con "none" se llama directamente, como en la red
-	// interna de Docker.
 	NodeServiceAuth string
 	AWSRegion       string
 }
 
-// Modos admitidos para NODE_SERVICE_AUTH.
 const (
 	NodeServiceAuthNone = "none"
 	NodeServiceAuthIAM  = "iam"
@@ -63,8 +58,6 @@ func Load() (Config, error) {
 		AWSRegion:          env.withDefault("AWS_REGION", ""),
 	}
 
-	// Firmar sin saber la region produce una firma que AWS rechaza, y el mensaje
-	// de error no lo explica. Mejor no arrancar.
 	if configuration.NodeServiceAuth == NodeServiceAuthIAM && configuration.AWSRegion == "" {
 		env.reject("AWS_REGION", "is required when NODE_SERVICE_AUTH is iam")
 	}
@@ -150,9 +143,6 @@ func (r *reader) origins(key string) []string {
 	return origins
 }
 
-// nodeServiceAuth solo admite los dos modos conocidos: un valor mal escrito
-// dejaria el servicio llamando sin firma contra un endpoint que la exige, y el
-// fallo apareceria en la primera peticion de un usuario y no al arrancar.
 func (r *reader) nodeServiceAuth(key string) string {
 	value := strings.ToLower(r.withDefault(key, defaultNodeServiceAuth))
 

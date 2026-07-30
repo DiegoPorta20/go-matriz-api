@@ -77,11 +77,6 @@ func buildApp(
 	}), nil
 }
 
-// buildStatisticsClient decide si la llamada a node-api va firmada.
-//
-// Es lo unico que cambia entre correr en la red interna de Docker y correr contra
-// una Lambda Function URL con autenticacion IAM. Ni el caso de uso ni el dominio
-// se enteran.
 func buildStatisticsClient(
 	ctx context.Context,
 	configuration config.Config,

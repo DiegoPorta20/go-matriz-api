@@ -17,13 +17,8 @@ import (
 
 const statisticsPath = "/api/v1/statistics"
 
-// Cabecera en la que viaja el token del usuario cuando la firma SigV4 ocupa
-// Authorization. node-api acepta las dos.
 const accessTokenHeader = "X-Access-Token"
 
-// RequestSigner firma la peticion saliente. Solo se usa cuando node-api esta
-// detras de una Function URL con autenticacion IAM; en la red interna de Docker
-// no hay nada que firmar.
 type RequestSigner interface {
 	Sign(ctx context.Context, request *http.Request, payload []byte) error
 }
@@ -34,8 +29,6 @@ type StatisticsClient struct {
 	signer     RequestSigner
 }
 
-// NewStatisticsClient construye el cliente sin firma, para cuando node-api es
-// alcanzable directamente.
 func NewStatisticsClient(baseURL string, timeout time.Duration) *StatisticsClient {
 	return &StatisticsClient{
 		baseURL:    strings.TrimSuffix(baseURL, "/"),
@@ -43,8 +36,6 @@ func NewStatisticsClient(baseURL string, timeout time.Duration) *StatisticsClien
 	}
 }
 
-// NewSignedStatisticsClient construye el cliente que firma cada peticion con
-// SigV4, para cuando node-api solo acepta llamadas autenticadas por IAM.
 func NewSignedStatisticsClient(
 	baseURL string,
 	timeout time.Duration,
@@ -104,11 +95,6 @@ func (c *StatisticsClient) newRequest(ctx context.Context, payload []byte) (*htt
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json")
 
-	// El token del llamante se reenvia sin modificar. Emitir uno nuevo aqui
-	// significaria que este servicio puede suplantar a cualquiera.
-	//
-	// Con firma va en una cabecera propia, porque SigV4 escribe en Authorization y
-	// las dos no caben. Sin firma va donde siempre.
 	if accessToken, ok := token.AccessTokenFrom(ctx); ok {
 		if c.signer != nil {
 			request.Header.Set(accessTokenHeader, accessToken)
@@ -118,8 +104,6 @@ func (c *StatisticsClient) newRequest(ctx context.Context, payload []byte) (*htt
 	}
 
 	if c.signer != nil {
-		// Se firma al final: SigV4 incluye las cabeceras en el calculo, asi que
-		// cualquier cambio posterior invalidaria la firma.
 		if err := c.signer.Sign(ctx, request, payload); err != nil {
 			return nil, fmt.Errorf("sign statistics request: %w", err)
 		}
