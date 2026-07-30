@@ -1,0 +1,119 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: deploy-production
+  # No se cancela a mitad: interrumpir una actualizacion de Lambda deja la
+  # funcion en un estado incierto.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # para pedir el token OIDC con el que se asume el rol
+
+jobs:
+  # Nada se despliega sin pasar antes la verificacion completa.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin claves de acceso: GitHub emite un token OIDC de vida corta y AWS lo
+      # cambia por credenciales temporales. No hay nada que rotar ni que filtrar.
+      - name: Autenticar en AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-deploy-go-api-${{ github.run_id }}
+
+      - name: Login en ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Construir y publicar la imagen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # Lambda corre X86_64 salvo que la funcion se configure para arm64. Sin
+          # esta linea, un runner ARM produciria una imagen que no arranca.
+          platforms: linux/amd64
+          push: true
+          # Etiquetada por SHA para poder identificar y revertir a un commit
+          # concreto; latest es solo comodidad para inspeccionar a mano.
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Actualizar la funcion Lambda
+        run: |
+          set -euo pipefail
+
+          image="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "Desplegando $image"
+
+          aws lambda update-function-code \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --image-uri "$image" \
+            --publish \
+            --no-cli-pager
+
+          # Sin esta espera el workflow saldria en verde con la funcion aun
+          # actualizandose, o incluso habiendo fallado la actualizacion.
+          aws lambda wait function-updated \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}"
+
+          estado=$(aws lambda get-function-configuration \
+            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --query 'LastUpdateStatus' --output text)
+
+          echo "LastUpdateStatus: $estado"
+          [ "$estado" = "Successful" ] || exit 1
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # El unico test que comprueba el sistema desplegado de punta a punta. Si
+      # go-api no alcanzara a node-api, esto responderia 502.
+      - name: Flujo completo de factorizacion
+        run: |
+          set -euo pipefail
+
+          token=$(curl -fsS --retry 5 --retry-delay 5 \
+            -X POST "${{ vars.PUBLIC_BASE_URL }}/api/v1/auth/login" \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\":\"${{ vars.SMOKE_USERNAME }}\",\"password\":\"${{ secrets.SMOKE_PASSWORD }}\"}" \
+            | jq -r '.data.accessToken')
+
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "No se obtuvo token: revisa SMOKE_USERNAME y SMOKE_PASSWORD"
+            exit 1
+          fi
+
+          # Matriz diagonal: comprueba tambien que la tolerancia de isDiagonal
+          # sigue funcionando sobre los residuos que deja la factorizacion.
+          curl -fsS -X POST "${{ vars.PUBLIC_BASE_URL }}/api/v1/factorization" \
+            -H "Authorization: Bearer $token" \
+            -H 'Content-Type: application/json' \
+            -d '{"matrix":[[2,0],[0,3]]}' \
+            | jq -e '.success == true
+                     and (.data.q | length) == 2
+                     and .data.statistics.q.isDiagonal == true
+                     and .data.statistics.r.isDiagonal == true' > /dev/null
+
+          echo "Factorizacion verificada de punta a punta"

@@ -1,0 +1,12 @@
+.env
+.env.*
+bin/
+*.out
+coverage/
+README.md
+.git
+.gitignore
+
+# El action de despliegue no tiene que entrar en la imagen: engordaria el
+# contexto e invalidaria la cache cada vez que se toque.
+.github/

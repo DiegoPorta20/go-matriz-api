@@ -1,0 +1,231 @@
+basePath: /api/v1
+definitions:
+  dto.AccessTokenDto:
+    properties:
+      accessToken:
+        type: string
+      expiresIn:
+        example: 3600
+        type: integer
+      tokenType:
+        example: Bearer
+        type: string
+    type: object
+  dto.AccessTokenResponseDto:
+    properties:
+      data:
+        $ref: '#/definitions/dto.AccessTokenDto'
+      message:
+        example: Authentication successful
+        type: string
+      success:
+        example: true
+        type: boolean
+      timestamp:
+        example: "2026-07-30T12:00:00Z"
+        type: string
+    type: object
+  dto.ErrorResponseDto:
+    properties:
+      errors:
+        items:
+          type: string
+        type: array
+      message:
+        example: Invalid matrix
+        type: string
+      success:
+        example: false
+        type: boolean
+      timestamp:
+        example: "2026-07-30T12:00:00Z"
+        type: string
+    type: object
+  dto.FactorizationDataDto:
+    properties:
+      original:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      q:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      r:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      statistics:
+        $ref: '#/definitions/dto.StatisticsDto'
+    type: object
+  dto.FactorizationResponseDto:
+    properties:
+      data:
+        $ref: '#/definitions/dto.FactorizationDataDto'
+      message:
+        example: Matrix processed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+      timestamp:
+        example: "2026-07-30T12:00:00Z"
+        type: string
+    type: object
+  dto.HealthResponseDto:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  dto.LoginRequestDto:
+    properties:
+      password:
+        example: change-this-password
+        type: string
+      username:
+        example: demo
+        type: string
+    type: object
+  dto.MatrixRequestDto:
+    properties:
+      matrix:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+    type: object
+  dto.MatrixStatisticsDto:
+    properties:
+      average:
+        example: -0.4743
+        type: number
+      isDiagonal:
+        example: false
+        type: boolean
+      max:
+        example: 0.3162
+        type: number
+      min:
+        example: -0.9487
+        type: number
+      sum:
+        example: -1.8974
+        type: number
+    type: object
+  dto.StatisticsDto:
+    properties:
+      q:
+        $ref: '#/definitions/dto.MatrixStatisticsDto'
+      r:
+        $ref: '#/definitions/dto.MatrixStatisticsDto'
+    type: object
+info:
+  contact: {}
+  description: Validates a matrix, computes its QR factorization and consolidates
+    the statistics calculated by node-api.
+  title: Factorization API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates the demo user configured in the environment and returns
+        a bearer token.
+      parameters:
+      - description: Credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequestDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.AccessTokenResponseDto'
+        "400":
+          description: Body is not valid JSON
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+        "401":
+          description: Credentials are invalid
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+      summary: Obtain an access token
+      tags:
+      - authentication
+  /factorization:
+    post:
+      consumes:
+      - application/json
+      description: Computes the QR factorization of the matrix and returns it together
+        with the statistics of Q and R.
+      parameters:
+      - description: Matrix to factorize
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MatrixRequestDto'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.FactorizationResponseDto'
+        "400":
+          description: Body is not valid JSON or matrix is missing
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+        "401":
+          description: Access token is missing or invalid
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+        "422":
+          description: Matrix breaks a domain rule
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+        "502":
+          description: Statistics service is unavailable
+          schema:
+            $ref: '#/definitions/dto.ErrorResponseDto'
+      security:
+      - BearerAuth: []
+      summary: Factorize a matrix and calculate statistics
+      tags:
+      - factorization
+  /health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.HealthResponseDto'
+      summary: Liveness probe
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: Bearer token obtained from /auth/login.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
