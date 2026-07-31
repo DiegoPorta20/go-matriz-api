@@ -157,20 +157,15 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Construir y publicar la imagen
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          # Lambda corre X86_64 salvo que la funcion se configure para arm64. Sin
-          # esta linea, un runner ARM produciria una imagen que no arranca.
-          platforms: linux/amd64
-          push: true
-          # Etiquetada por SHA para poder identificar y revertir a un commit
-          # concreto; latest es solo comodidad para inspeccionar a mano.
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          set -euo pipefail
+          docker build \
+            --platform linux/amd64 \
+            --tag "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" \
+            --tag "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest" \
+            .
+          docker push "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          docker push "${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest"
 
       - name: Actualizar la funcion Lambda
         run: |
