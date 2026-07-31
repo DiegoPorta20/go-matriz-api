@@ -32,6 +32,7 @@ env:
   LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME || secrets.LAMBDA_FUNCTION_NAME }}
   GO_API_URL: ${{ vars.GO_API_URL || vars.API_BASE_URL || vars.PUBLIC_API_URL || secrets.GO_API_URL || secrets.API_BASE_URL || secrets.PUBLIC_API_URL || '' }}
   NODE_SERVICE_URL: ${{ vars.NODE_SERVICE_URL || secrets.NODE_SERVICE_URL || '' }}
+  CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS || secrets.CORS_ALLOWED_ORIGINS || '' }}
   SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME }}
 
 jobs:
@@ -130,6 +131,11 @@ jobs:
             echo "Pon aquí la URL pública real del backend Node, por ejemplo https://tu-dominio.com/api/v1"
             exit 1
           fi
+          if [ -z "${CORS_ALLOWED_ORIGINS:-}" ]; then
+            echo "Falta la variable CORS_ALLOWED_ORIGINS en GitHub Actions (Variables o Secrets)."
+            echo "Pon aquí el origen del frontend, por ejemplo https://tu-frontend.com"
+            exit 1
+          fi
 
       - name: Autenticar en AWS con OIDC
         if: ${{ env.AWS_DEPLOY_ROLE_ARN != '' }}
@@ -189,6 +195,11 @@ jobs:
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --image-uri "$image" \
             --publish \
+            --no-cli-pager
+
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
+            --environment "Variables={NODE_SERVICE_URL=$NODE_SERVICE_URL,CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS}" \
             --no-cli-pager
 
           # Sin esta espera el workflow saldria en verde con la funcion aun
