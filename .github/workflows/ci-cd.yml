@@ -24,6 +24,12 @@ permissions:
 env:
   GO_VERSION: '1.25'
   COVERAGE_THRESHOLD: 80
+  AWS_REGION: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'us-east-1' }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN || secrets.AWS_DEPLOY_ROLE_ARN }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || secrets.ECR_REPOSITORY }}
+  LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME || secrets.LAMBDA_FUNCTION_NAME }}
+  API_BASE_URL: ${{ vars.API_BASE_URL || secrets.API_BASE_URL }}
+  SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME }}
 
 jobs:
   verify:
@@ -100,11 +106,27 @@ jobs:
 
       # Sin claves de acceso: GitHub emite un token OIDC de vida corta y AWS lo
       # cambia por credenciales temporales. No hay nada que rotar ni que filtrar.
+      - name: Validar variables de despliegue
+        run: |
+          set -euo pipefail
+          if [ -z "$AWS_DEPLOY_ROLE_ARN" ]; then
+            echo "Falta la variable AWS_DEPLOY_ROLE_ARN en GitHub Actions (Variables o Secrets)."
+            exit 1
+          fi
+          if [ -z "$ECR_REPOSITORY" ]; then
+            echo "Falta la variable ECR_REPOSITORY en GitHub Actions (Variables o Secrets)."
+            exit 1
+          fi
+          if [ -z "$LAMBDA_FUNCTION_NAME" ]; then
+            echo "Falta la variable LAMBDA_FUNCTION_NAME en GitHub Actions (Variables o Secrets)."
+            exit 1
+          fi
+
       - name: Autenticar en AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: gha-deploy-go-api-${{ github.run_id }}
 
       - name: Login en ECR
@@ -124,8 +146,8 @@ jobs:
           # Etiquetada por SHA para poder identificar y revertir a un commit
           # concreto; latest es solo comodidad para inspeccionar a mano.
           tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:latest
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -137,7 +159,7 @@ jobs:
           echo "Desplegando $image"
 
           aws lambda update-function-code \
-            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
             --image-uri "$image" \
             --publish \
             --no-cli-pager
@@ -145,10 +167,10 @@ jobs:
           # Sin esta espera el workflow saldria en verde con la funcion aun
           # actualizandose, o incluso habiendo fallado la actualizacion.
           aws lambda wait function-updated \
-            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}"
+            --function-name "$LAMBDA_FUNCTION_NAME"
 
           estado=$(aws lambda get-function-configuration \
-            --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --function-name "$LAMBDA_FUNCTION_NAME" \
             --query 'LastUpdateStatus' --output text)
 
           echo "LastUpdateStatus: $estado"
@@ -168,9 +190,9 @@ jobs:
           set -euo pipefail
 
           token=$(curl -fsS --retry 5 --retry-delay 5 \
-            -X POST "${{ vars.API_BASE_URL }}/auth/login" \
+            -X POST "$API_BASE_URL/auth/login" \
             -H 'Content-Type: application/json' \
-            -d "{\"username\":\"${{ vars.SMOKE_USERNAME }}\",\"password\":\"${{ secrets.SMOKE_PASSWORD }}\"}" \
+            -d "{\"username\":\"$SMOKE_USERNAME\",\"password\":\"${{ secrets.SMOKE_PASSWORD }}\"}" \
             | jq -r '.data.accessToken')
 
           if [ -z "$token" ] || [ "$token" = "null" ]; then
@@ -180,7 +202,7 @@ jobs:
 
           # Matriz diagonal: comprueba tambien que la tolerancia de isDiagonal
           # sigue funcionando sobre los residuos que deja la factorizacion.
-          curl -fsS -X POST "${{ vars.API_BASE_URL }}/factorization" \
+          curl -fsS -X POST "$API_BASE_URL/factorization" \
             -H "Authorization: Bearer $token" \
             -H 'Content-Type: application/json' \
             -d '{"matrix":[[2,0],[0,3]]}' \
