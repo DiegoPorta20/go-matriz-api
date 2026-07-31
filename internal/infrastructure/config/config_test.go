@@ -20,6 +20,21 @@ func setValidEnvironment(t *testing.T) {
 	t.Setenv("AUTH_USERNAME", "demo")
 	t.Setenv("AUTH_PASSWORD", "a-demo-password")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:4200")
+
+	// Las opcionales se vacian para que los tests de valores por defecto midan el default y no lo
+	// que traiga el entorno de quien ejecuta la suite: un runner de CI o una terminal donde se haya
+	// cargado el .env del proyecto. Load() trata la cadena vacia igual que la variable ausente.
+	for _, key := range []string{
+		"GO_API_PORT",
+		"NODE_SERVICE_TIMEOUT_MS",
+		"NODE_SERVICE_AUTH",
+		"JWT_EXPIRATION_MINUTES",
+		"MAX_MATRIX_DIMENSION",
+		"LOG_LEVEL",
+		"AWS_REGION",
+	} {
+		t.Setenv(key, "")
+	}
 }
 
 func TestLoadReadsACompleteEnvironment(t *testing.T) {

@@ -31,25 +31,6 @@ env:
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || secrets.ECR_REPOSITORY }}
   LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME || secrets.LAMBDA_FUNCTION_NAME }}
   GO_API_URL: ${{ vars.GO_API_URL || vars.API_BASE_URL || vars.PUBLIC_API_URL || secrets.GO_API_URL || secrets.API_BASE_URL || secrets.PUBLIC_API_URL || '' }}
-  NODE_SERVICE_URL: ${{ vars.NODE_SERVICE_URL || secrets.NODE_SERVICE_URL || '' }}
-  CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS || secrets.CORS_ALLOWED_ORIGINS || '' }}
-
-  # Configuracion de la funcion. update-function-configuration REEMPLAZA el mapa de variables
-  # completo, asi que todo lo que la funcion necesite tiene que estar aqui: lo que falte en este
-  # bloque desaparece de la Lambda en el siguiente despliegue.
-  #
-  # AWS_REGION no se declara: es reservada y Lambda la inyecta con la region de la funcion.
-  NODE_SERVICE_AUTH: ${{ vars.NODE_SERVICE_AUTH || 'iam' }}
-  # Con imagen de contenedor el arranque en frio de node-api puede pasar de 5 s, y go-api
-  # traduciria ese corte a un 502 sin que nada este mal.
-  NODE_SERVICE_TIMEOUT_MS: ${{ vars.NODE_SERVICE_TIMEOUT_MS || '10000' }}
-  JWT_SECRET: ${{ secrets.JWT_SECRET }}
-  JWT_EXPIRATION_MINUTES: ${{ vars.JWT_EXPIRATION_MINUTES || '60' }}
-  AUTH_USERNAME: ${{ vars.AUTH_USERNAME || secrets.AUTH_USERNAME }}
-  AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
-  MAX_MATRIX_DIMENSION: ${{ vars.MAX_MATRIX_DIMENSION || '50' }}
-  LOG_LEVEL: ${{ vars.LOG_LEVEL || 'info' }}
-
   # El smoke test hace login de verdad, asi que por defecto usa las credenciales que este mismo
   # despliegue acaba de configurar. SMOKE_* sigue existiendo para poder apuntar a otras.
   SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME || vars.AUTH_USERNAME || secrets.AUTH_USERNAME }}
@@ -125,6 +106,27 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
+    # La configuracion de la funcion vive en este job y no en el env: del workflow, porque ahi
+    # tambien la heredaria el job de verificacion: los tests de config leen el entorno del proceso
+    # y NODE_SERVICE_AUTH o LOG_LEVEL harian fallar los que comprueban los valores por defecto.
+    #
+    # update-function-configuration REEMPLAZA el mapa de variables completo, asi que todo lo que la
+    # funcion necesite tiene que estar aqui: lo que falte desaparece de la Lambda al desplegar.
+    #
+    # AWS_REGION no se declara: es reservada y Lambda la inyecta con la region de la funcion.
+    env:
+      NODE_SERVICE_URL: ${{ vars.NODE_SERVICE_URL || secrets.NODE_SERVICE_URL || '' }}
+      CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS || secrets.CORS_ALLOWED_ORIGINS || '' }}
+      NODE_SERVICE_AUTH: ${{ vars.NODE_SERVICE_AUTH || 'iam' }}
+      # Con imagen de contenedor el arranque en frio de node-api puede pasar de 5 s, y go-api
+      # traduciria ese corte a un 502 sin que nada este mal.
+      NODE_SERVICE_TIMEOUT_MS: ${{ vars.NODE_SERVICE_TIMEOUT_MS || '10000' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION_MINUTES: ${{ vars.JWT_EXPIRATION_MINUTES || '60' }}
+      AUTH_USERNAME: ${{ vars.AUTH_USERNAME || secrets.AUTH_USERNAME }}
+      AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+      MAX_MATRIX_DIMENSION: ${{ vars.MAX_MATRIX_DIMENSION || '50' }}
+      LOG_LEVEL: ${{ vars.LOG_LEVEL || 'info' }}
     steps:
       - uses: actions/checkout@v4
 
