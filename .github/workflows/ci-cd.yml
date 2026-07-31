@@ -33,7 +33,27 @@ env:
   GO_API_URL: ${{ vars.GO_API_URL || vars.API_BASE_URL || vars.PUBLIC_API_URL || secrets.GO_API_URL || secrets.API_BASE_URL || secrets.PUBLIC_API_URL || '' }}
   NODE_SERVICE_URL: ${{ vars.NODE_SERVICE_URL || secrets.NODE_SERVICE_URL || '' }}
   CORS_ALLOWED_ORIGINS: ${{ vars.CORS_ALLOWED_ORIGINS || secrets.CORS_ALLOWED_ORIGINS || '' }}
-  SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME }}
+
+  # Configuracion de la funcion. update-function-configuration REEMPLAZA el mapa de variables
+  # completo, asi que todo lo que la funcion necesite tiene que estar aqui: lo que falte en este
+  # bloque desaparece de la Lambda en el siguiente despliegue.
+  #
+  # AWS_REGION no se declara: es reservada y Lambda la inyecta con la region de la funcion.
+  NODE_SERVICE_AUTH: ${{ vars.NODE_SERVICE_AUTH || 'iam' }}
+  # Con imagen de contenedor el arranque en frio de node-api puede pasar de 5 s, y go-api
+  # traduciria ese corte a un 502 sin que nada este mal.
+  NODE_SERVICE_TIMEOUT_MS: ${{ vars.NODE_SERVICE_TIMEOUT_MS || '10000' }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  JWT_EXPIRATION_MINUTES: ${{ vars.JWT_EXPIRATION_MINUTES || '60' }}
+  AUTH_USERNAME: ${{ vars.AUTH_USERNAME || secrets.AUTH_USERNAME }}
+  AUTH_PASSWORD: ${{ secrets.AUTH_PASSWORD }}
+  MAX_MATRIX_DIMENSION: ${{ vars.MAX_MATRIX_DIMENSION || '50' }}
+  LOG_LEVEL: ${{ vars.LOG_LEVEL || 'info' }}
+
+  # El smoke test hace login de verdad, asi que por defecto usa las credenciales que este mismo
+  # despliegue acaba de configurar. SMOKE_* sigue existiendo para poder apuntar a otras.
+  SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME || vars.AUTH_USERNAME || secrets.AUTH_USERNAME }}
+  SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD || secrets.AUTH_PASSWORD }}
 
 jobs:
   verify:
@@ -137,6 +157,27 @@ jobs:
             exit 1
           fi
 
+          # Estas tres se validan aquí, antes de tocar AWS, porque el paso de configuración
+          # reemplaza el mapa entero: desplegar sin ellas deja la función sin arrancar y la
+          # Function URL devolviendo 502 a todo.
+          if [ -z "${JWT_SECRET:-}" ]; then
+            echo "Falta el secret JWT_SECRET en GitHub Actions."
+            echo "Tiene que ser el mismo valor que en node-api."
+            exit 1
+          fi
+          if [ ${#JWT_SECRET} -lt 32 ]; then
+            echo "JWT_SECRET tiene ${#JWT_SECRET} caracteres y el mínimo son 32."
+            exit 1
+          fi
+          if [ -z "${AUTH_USERNAME:-}" ]; then
+            echo "Falta la variable AUTH_USERNAME en GitHub Actions (Variables o Secrets)."
+            exit 1
+          fi
+          if [ -z "${AUTH_PASSWORD:-}" ]; then
+            echo "Falta el secret AUTH_PASSWORD en GitHub Actions."
+            exit 1
+          fi
+
       - name: Autenticar en AWS con OIDC
         if: ${{ env.AWS_DEPLOY_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
@@ -202,10 +243,39 @@ jobs:
           aws lambda wait function-updated \
             --function-name "$LAMBDA_FUNCTION_NAME"
 
+          # El mapa se construye con jq y no interpolando la forma corta Variables={K=V,...}:
+          # esa notacion se rompe con cualquier valor que contenga una coma o un igual, y aqui
+          # viajan una contraseña y un secreto.
+          #
+          # La salida se descarta porque incluye las variables de entorno de la funcion.
+          entorno=$(jq -n \
+            --arg node_service_url "$NODE_SERVICE_URL" \
+            --arg node_service_auth "$NODE_SERVICE_AUTH" \
+            --arg node_service_timeout_ms "$NODE_SERVICE_TIMEOUT_MS" \
+            --arg jwt_secret "$JWT_SECRET" \
+            --arg jwt_expiration_minutes "$JWT_EXPIRATION_MINUTES" \
+            --arg auth_username "$AUTH_USERNAME" \
+            --arg auth_password "$AUTH_PASSWORD" \
+            --arg cors_allowed_origins "$CORS_ALLOWED_ORIGINS" \
+            --arg max_matrix_dimension "$MAX_MATRIX_DIMENSION" \
+            --arg log_level "$LOG_LEVEL" \
+            '{Variables: {
+              NODE_SERVICE_URL: $node_service_url,
+              NODE_SERVICE_AUTH: $node_service_auth,
+              NODE_SERVICE_TIMEOUT_MS: $node_service_timeout_ms,
+              JWT_SECRET: $jwt_secret,
+              JWT_EXPIRATION_MINUTES: $jwt_expiration_minutes,
+              AUTH_USERNAME: $auth_username,
+              AUTH_PASSWORD: $auth_password,
+              CORS_ALLOWED_ORIGINS: $cors_allowed_origins,
+              MAX_MATRIX_DIMENSION: $max_matrix_dimension,
+              LOG_LEVEL: $log_level
+            }}')
+
           aws lambda update-function-configuration \
             --function-name "$LAMBDA_FUNCTION_NAME" \
-            --environment "Variables={NODE_SERVICE_URL=$NODE_SERVICE_URL,CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS}" \
-            --no-cli-pager
+            --environment "$entorno" \
+            --no-cli-pager > /dev/null
 
           aws lambda wait function-updated \
             --function-name "$LAMBDA_FUNCTION_NAME"
@@ -233,7 +303,7 @@ jobs:
           token=$(curl -fsS --retry 5 --retry-delay 5 \
             -X POST "$GO_API_URL/auth/login" \
             -H 'Content-Type: application/json' \
-            -d "{\"username\":\"$SMOKE_USERNAME\",\"password\":\"${{ secrets.SMOKE_PASSWORD }}\"}" \
+            -d "$(jq -n --arg u "$SMOKE_USERNAME" --arg p "$SMOKE_PASSWORD" '{username: $u, password: $p}')" \
             | jq -r '.data.accessToken')
 
           if [ -z "$token" ] || [ "$token" = "null" ]; then
