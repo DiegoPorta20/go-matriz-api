@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/token"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/token"
 )
 
 const (

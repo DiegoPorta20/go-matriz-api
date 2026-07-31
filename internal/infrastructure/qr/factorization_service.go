@@ -5,7 +5,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/matrix"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/matrix"
 )
 
 type FactorizationService struct{}

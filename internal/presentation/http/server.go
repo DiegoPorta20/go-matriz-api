@@ -11,9 +11,9 @@ import (
 	recovermw "github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/config"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/middleware"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/routes"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/config"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/middleware"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/routes"
 )
 
 const (

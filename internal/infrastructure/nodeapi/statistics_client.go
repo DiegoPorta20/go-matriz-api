@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/application/factorization"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/matrix"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/statistics"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/token"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/factorization"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/matrix"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/statistics"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/token"
 )
 
 const statisticsPath = "/api/v1/statistics"

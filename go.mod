@@ -1,4 +1,4 @@
-module github.com/detecta/reto-tecnico/go-api
+module github.com/DiegoPorta20/go-matriz-api
 
 // Fiber v3.4.0 exige Go 1.25.0 como mínimo.
 go 1.25.0

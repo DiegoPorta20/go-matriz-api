@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/matrix"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/statistics"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/matrix"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/statistics"
 )
 
 type FactorizeMatrixUseCase struct {

@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/application/factorization"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/matrix"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/statistics"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/factorization"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/matrix"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/statistics"
 )
 
 const maxDimension = 3

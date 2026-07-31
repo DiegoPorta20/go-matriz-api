@@ -12,17 +12,17 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/application/auth"
-	"github.com/detecta/reto-tecnico/go-api/internal/application/factorization"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/awsauth"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/config"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/logger"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/nodeapi"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/qr"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/token"
-	presentation "github.com/detecta/reto-tecnico/go-api/internal/presentation/http"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/controllers"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/routes"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/auth"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/factorization"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/awsauth"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/config"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/logger"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/nodeapi"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/qr"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/token"
+	presentation "github.com/DiegoPorta20/go-matriz-api/internal/presentation/http"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/controllers"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/routes"
 )
 
 const shutdownTimeout = 10 * time.Second

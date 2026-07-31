@@ -3,9 +3,9 @@ package dto
 import (
 	"time"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/application/auth"
-	"github.com/detecta/reto-tecnico/go-api/internal/application/factorization"
-	"github.com/detecta/reto-tecnico/go-api/internal/domain/statistics"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/auth"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/factorization"
+	"github.com/DiegoPorta20/go-matriz-api/internal/domain/statistics"
 )
 
 const successMessage = "Matrix processed successfully"

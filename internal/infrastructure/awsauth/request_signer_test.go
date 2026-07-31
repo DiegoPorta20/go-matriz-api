@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/awsauth"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/awsauth"
 )
 
 const testRegion = "eu-west-1"

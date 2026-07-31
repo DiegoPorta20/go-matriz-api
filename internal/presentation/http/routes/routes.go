@@ -5,10 +5,10 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	_ "github.com/detecta/reto-tecnico/go-api/docs"
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/token"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/controllers"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/middleware"
+	_ "github.com/DiegoPorta20/go-matriz-api/docs"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/token"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/controllers"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/middleware"
 )
 
 type Dependencies struct {

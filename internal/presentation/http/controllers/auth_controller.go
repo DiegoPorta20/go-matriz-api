@@ -3,8 +3,8 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/application/auth"
-	"github.com/detecta/reto-tecnico/go-api/internal/presentation/http/dto"
+	"github.com/DiegoPorta20/go-matriz-api/internal/application/auth"
+	"github.com/DiegoPorta20/go-matriz-api/internal/presentation/http/dto"
 )
 
 type AuthController struct {

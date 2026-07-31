@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/detecta/reto-tecnico/go-api/internal/infrastructure/config"
+	"github.com/DiegoPorta20/go-matriz-api/internal/infrastructure/config"
 )
 
 const validSecret = "a-configuration-secret-of-32-chars!"
