@@ -30,7 +30,8 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || secrets.ECR_REPOSITORY }}
   LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME || secrets.LAMBDA_FUNCTION_NAME }}
-  API_BASE_URL: ${{ vars.API_BASE_URL || secrets.API_BASE_URL }}
+  GO_API_URL: ${{ vars.GO_API_URL || vars.API_BASE_URL || vars.PUBLIC_API_URL || secrets.GO_API_URL || secrets.API_BASE_URL || secrets.PUBLIC_API_URL || '' }}
+  NODE_SERVICE_URL: ${{ vars.NODE_SERVICE_URL || secrets.NODE_SERVICE_URL || '' }}
   SMOKE_USERNAME: ${{ vars.SMOKE_USERNAME || secrets.SMOKE_USERNAME }}
 
 jobs:
@@ -117,6 +118,16 @@ jobs:
           fi
           if [ -z "$LAMBDA_FUNCTION_NAME" ]; then
             echo "Falta la variable LAMBDA_FUNCTION_NAME en GitHub Actions (Variables o Secrets)."
+            exit 1
+          fi
+          if [ -z "${GO_API_URL:-}" ]; then
+            echo "Falta la variable GO_API_URL en GitHub Actions (Variables o Secrets)."
+            echo "Pon aquí la URL pública real de este backend Go, por ejemplo https://tu-dominio.com/api/v1"
+            exit 1
+          fi
+          if [ -z "${NODE_SERVICE_URL:-}" ]; then
+            echo "Falta la variable NODE_SERVICE_URL en GitHub Actions (Variables o Secrets)."
+            echo "Pon aquí la URL pública real del backend Node, por ejemplo https://tu-dominio.com/api/v1"
             exit 1
           fi
 
@@ -206,7 +217,7 @@ jobs:
           set -euo pipefail
 
           token=$(curl -fsS --retry 5 --retry-delay 5 \
-            -X POST "$API_BASE_URL/auth/login" \
+            -X POST "$GO_API_URL/auth/login" \
             -H 'Content-Type: application/json' \
             -d "{\"username\":\"$SMOKE_USERNAME\",\"password\":\"${{ secrets.SMOKE_PASSWORD }}\"}" \
             | jq -r '.data.accessToken')
@@ -218,7 +229,7 @@ jobs:
 
           # Matriz diagonal: comprueba tambien que la tolerancia de isDiagonal
           # sigue funcionando sobre los residuos que deja la factorizacion.
-          curl -fsS -X POST "$API_BASE_URL/factorization" \
+          curl -fsS -X POST "$GO_API_URL/factorization" \
             -H "Authorization: Bearer $token" \
             -H 'Content-Type: application/json' \
             -d '{"matrix":[[2,0],[0,3]]}' \
