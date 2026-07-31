@@ -197,13 +197,16 @@ jobs:
             --publish \
             --no-cli-pager
 
+          # Esperar a que termine la actualizacion de codigo antes de tocar la
+          # configuracion; si no, AWS devuelve ResourceConflictException.
+          aws lambda wait function-updated \
+            --function-name "$LAMBDA_FUNCTION_NAME"
+
           aws lambda update-function-configuration \
             --function-name "$LAMBDA_FUNCTION_NAME" \
             --environment "Variables={NODE_SERVICE_URL=$NODE_SERVICE_URL,CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS}" \
             --no-cli-pager
 
-          # Sin esta espera el workflow saldria en verde con la funcion aun
-          # actualizandose, o incluso habiendo fallado la actualizacion.
           aws lambda wait function-updated \
             --function-name "$LAMBDA_FUNCTION_NAME"
 
